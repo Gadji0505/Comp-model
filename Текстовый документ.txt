@@ -1,0 +1,388 @@
+#include <iostream>
+#include <random>
+#include <chrono>
+#include <iomanip>
+#include <vector>
+//#include <queue>
+using namespace std;
+
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    mt19937 mt{ static_cast<mt19937::result_type>(
+        chrono::steady_clock::now().time_since_epoch().count()
+    ) };
+
+    int K = 0, TYP = 1, i = 1, L = 0, N = 100000;
+    int total = 0; //чтобы все были обслужены
+    long double systemtime = 0.0, T1, T2 = 1e9, ML = 0.0;
+    //uniform_real_distribution<double> tau{ 1.0, 7.0 };
+    //uniform_real_distribution<double> sigma{ 1.0, 6.0 };
+
+    double lambda = 0.24;
+    exponential_distribution<double> tau{ lambda };
+    double mu = 0.3;
+    exponential_distribution<double> sigma{ mu };
+    //cout << "Интенсивность поступления (lambda): " << lambda << "\n";
+    //cout << "Интенсивность обслуживания (mu): " << mu << "\n";
+
+    //вектор очереди для поступления
+    vector<long double> arrival;
+    //вектор времён ожидания
+    vector<long double> wait;
+
+    T1 = tau(mt);
+
+    while (total < N) {
+        systemtime = min(T1, T2);
+
+        if (T1 <= T2) {
+            TYP = 1;
+        }
+        else {
+            TYP = 2;
+        }
+
+        //cout << "state (K = " << K << " L = " << L << ") t = " << systemtime;
+
+        if (TYP == 1) {
+            //cout << "; In i = " << i << " TYP = " << TYP << "\n";
+            ML += L;
+
+            if (i < N) {
+                T1 = systemtime + tau(mt);
+            }
+            else {
+                T1 = 1e9;
+            }
+            i++;
+
+            if (K == 0) {
+                K = 1;
+                T2 = systemtime + sigma(mt);
+                wait.push_back(0.0);
+                total++;
+            }
+            else {
+                L++;
+                arrival.push_back(systemtime);
+            }
+        }
+        else {
+            //cout << "; Out: TYP = " << TYP << "\n";
+            if (L == 0) {
+                K = 0;
+                T2 = 1e9;
+            }
+            else {
+                L--;
+
+                uniform_int_distribution<size_t> dist(0, arrival.size() - 1);
+                size_t random_idx = dist(mt);
+
+                double arrival_time = arrival[random_idx];
+                arrival.erase(arrival.begin() + random_idx);
+
+                double wait_doub = systemtime - arrival_time;
+                wait.push_back(wait_doub);
+                total++;
+
+                T2 = systemtime + sigma(mt);
+            }
+        }
+    }
+    //cout << "Загрузка системы (lambda/mu): " << lambda / mu << "\n";
+    //cout << "Времена ожидания (всего " << wait.size() << ")\n";
+    //cout << "Номер\tВремя ожидания\n";
+
+    /*
+    int limit = wait.size(); // Если нужно ограничить: limit = 100;
+    double tot = 0.0;
+    for (int j = 0; j < limit; j++) {
+        tot += wait[j];
+        cout << j + 1 << "\t" << setprecision(4) << wait[j] << "\n";
+    }
+    cout << tot << '\n';
+    */
+    cout << "Распределение и функция распределения:\n";
+    cout << "Интервал\tЧисло задач\tВероятность\tF(x)\n";
+
+    //создаем интервалы
+    int all_interval = 15;
+    vector<int> counts(all_interval + 1, 0);
+
+    for (int i = 0; i < wait.size(); i++) {
+        int idx = round(wait[i]);
+        if (idx > all_interval) {
+            idx = all_interval;
+        }
+        counts[idx]++;
+    }
+
+    double res_func = 0.0;
+    for (int j = 0; j <= all_interval; j++) {
+        double chast = 1.0 * counts[j] / N; //для дробного
+        res_func += chast;
+        if (j < all_interval) {
+            cout << j << "-" << j + 1 << " интервал\t" << counts[j] << "\t\t" << setprecision(4) << chast << "\t\t" << setprecision(4) << res_func << "\n";
+        }
+        else {
+            cout << j << " п. интервал\t" << counts[j] << "\t\t" << setprecision(4) << chast << "\t\t" << setprecision(4) << res_func << "\n";
+        }
+    }
+
+    cout << "Средняя длина очереди: " << ML / N << "\n";
+    cout << "Среднее время ожидания: ";
+    double sum_wait = 0.0;
+    for (int i = 0; i < wait.size(); i++) {
+        sum_wait += wait[i];
+    }
+    cout << sum_wait / N << "\n";
+
+    return 0;
+}
+
+
+
+#include <iostream>
+#include <random>
+#include <chrono>
+#include <iomanip>
+using namespace std;
+
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    mt19937 mt{ static_cast<mt19937::result_type>(
+        chrono::steady_clock::now().time_since_epoch().count()
+    ) };
+
+    uniform_real_distribution<double> tau{ 1.0, 7.0 };
+    uniform_real_distribution<double> sigma{ 1.0, 6.0 };
+
+    int K = 0, TYP = 1, i = 1, L = 0, N = 10;
+    double systemtime = 0.0, T1, T2, ML = 0.0;
+
+    T1 = tau(mt);
+    T2 = T1 + sigma(mt);
+
+    while (i <= N) {
+        systemtime = min(T1, T2);
+
+        if (T1 <= T2) {
+            TYP = 1;
+        }
+        else {
+            TYP = 2;
+        }
+
+        cout << "state (K = " << K << " L = " << L << ") t = " << systemtime;
+
+        if (TYP == 1) {
+            cout << "; In i = " << i << " TYP = " << TYP << "\n";
+            ML += L;
+
+            if (i < N) {
+                T1 = systemtime + tau(mt);
+            }
+            else {
+                T1 = 1e9;
+            }
+            i++;
+
+            if (K == 0) {
+                K = 1;
+                T2 = systemtime + sigma(mt);
+            }
+            else {
+                L++;
+            }
+        }
+        else {
+            cout << "; Out: TYP = " << TYP << "\n";
+
+            if (L == 0) {
+                K = 0;
+                T2 = 1e9;
+            }
+            else {
+                L--;
+                T2 = systemtime + sigma(mt);
+            }
+        }
+    }
+
+    cout << "Средняя длина очереди: " << ML / N << "\n";
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+#include <iostream>
+#include <random>
+#include <chrono>
+#include <iomanip>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    mt19937 mt{ static_cast<mt19937::result_type>(
+        chrono::steady_clock::now().time_since_epoch().count()
+    ) };
+
+    //новые параметры
+    int n = 10;
+    double a, b;
+    cout << "\nВведите a и b: ";
+    cin >> a >> b;
+    double T = 1000.0; //длительность
+    int task = 100;
+    uniform_real_distribution<double> dist{ a, b };
+
+    //uniform_real_distribution<double> tau{ 1.0, 7.0 };
+    //uniform_real_distribution<double> sigma{ 1.0, 6.0 };
+
+    //int K = 0, TYP = 1, i = 1, L = 0, N = 10;
+    /*
+    double systemtime = 0.0, T1, T2, ML = 0.0;
+
+    T1 = tau(mt);
+    T2 = T1 + sigma(mt);
+
+    while (i <= N) {
+        systemtime = min(T1, T2);
+
+        if (T1 <= T2) {
+            TYP = 1;
+        }
+        else {
+            TYP = 2;
+        }
+
+        cout << "state (K = " << K << " L = " << L << ") t = " << systemtime;
+
+        if (TYP == 1) {
+            cout << "; In i = " << i << " TYP = " << TYP << "\n";
+            ML += L;
+
+            if (i < N) {
+                T1 = systemtime + tau(mt);
+            }
+            else {
+                T1 = 1e9;
+            }
+            i++;
+
+            if (K == 0) {
+                K = 1;
+                T2 = systemtime + sigma(mt);
+            }
+            else {
+                L++;
+            }
+        }
+        else {
+            cout << "; Out: TYP = " << TYP << "\n";
+
+            if (L == 0) {
+                K = 0;
+                T2 = 1e9;
+            }
+            else {
+                L--;
+                T2 = systemtime + sigma(mt);
+            }
+        }
+    }
+
+    cout << "Средняя длина очереди: " << ML / N << "\n";
+
+    */
+
+    vector<vector<double>> streams(n);
+    
+    for (int i = 0; i < n; i++)
+    {
+        long double time = 0.0;
+            while (time < T)
+            {
+                double interval = dist(mt);
+                time += interval;
+                if (time <= T)
+                {
+                    streams[i].push_back(time);
+                }
+            }
+    }
+
+    double total_task = 0;
+    for (int i = 0; i < n; i++)
+    {
+        double lambda_i = streams[i].size() / T;
+        cout << "Поток " << i + 1 << ": " << streams[i].size() << " интенсивность = " << lambda_i << "\n";
+        total_task += streams[i].size();
+    }
+
+    long double real_lambda = n / ((a + b) / 2.0);
+    cout << "lambda_teor = " << n << "/" << (a + b) / 2.0 << " = " << real_lambda << "\n";
+
+    vector<double> superposition;
+    for (int i = 0; i < n; i++)
+    {
+        for (double t : streams[i]) {
+            superposition.push_back(t);
+        }
+    }
+    sort(superposition.begin(), superposition.end());
+
+    vector<double> interval;
+    for (size_t i = 1; i < superposition.size(); i++) {
+        interval.push_back(superposition[i] - superposition[i - 1]);
+    }
+
+    double sum_int = 0;
+    for (double inter : interval) {
+        sum_int += inter;
+    }
+
+    double avg_inter = sum_int / interval.size();
+    long double emp_lambda = 1.0 / avg_inter;
+
+    cout << "\nВсего событий: " << superposition.size() << "\n";
+    cout << "Длительность: " << T << "\n";
+    cout << "Эмперическая интенсивность: " << emp_lambda << "\n";
+    cout << "Теоритическая интенсивность: " << real_lambda << "\n";
+
+    cout << "Отклонение: " << abs(emp_lambda - real_lambda) << "\n";
+    int max_int = 10;
+
+    vector<int> counts(max_int + 1, 0);
+
+    for (double interv : interval)
+    {
+        int idx = (int)interv;
+        if (idx > max_int)
+            idx = max_int;
+        counts[idx]++;
+    }
+
+    cout << "Интервал\tЧисло\tВероятность\n";
+    for (int i = 0; i < max_int; i++) {
+        double prob = (double)counts[i] / interval.size();
+        if (i < max_int) {
+            cout << i << "-" << i + 1 << "\t\t" << counts[i] << "\t\t" << setprecision(4) << prob << "\n";
+        }
+        else
+            cout << i << "+\t\t" << counts[i] << "\t\t" << setprecision(4) << prob << "\n";
+    }
+    return 0;
+}
